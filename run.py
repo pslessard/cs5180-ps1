@@ -3,6 +3,7 @@ from policies import (OptimalPolicy, RandomPolicy, ThresholdPolicy)
 
 import numpy as np
 import pandas as pd
+import plotly.express as px
 
 NUM_EPISODES = 10000
 
@@ -22,12 +23,16 @@ def run_episode(env, policy) -> int | np.int64:
     
     return final_reward
 
-def evaluate_policy(env, policy):
+def evaluate_policy(policy, std_dev):
     rewards = []
+
+    env = ApartmentEnv(4, 4, std_dev)
 
     for _ in range(NUM_EPISODES):
         reward = run_episode(env, policy)
         rewards.append(reward)
+    
+    env.close()
     
     return pd.Series(rewards, dtype=np.int64)
 
@@ -40,17 +45,27 @@ policies = {
     "Optimal": { "policy": OptimalPolicy()}
 }
 
-env = ApartmentEnv(4, 4)
+dfs = []
+summary = []
+for name, policy in policies.items():
+    for std_dev in [0.0, 0.5, 1.0, 2.0]:
+        rewards = evaluate_policy(policy["policy"], std_dev)
 
-for policy in policies.values():
-    rewards = evaluate_policy(env, policy["policy"])
+        result = {"name": name, "std_dev": std_dev}
+        result["mean"] = rewards.mean()
+        result["std_error"] = rewards.sem()
+        result["full_rejection_ratio"] = rewards[rewards == 0].size / NUM_EPISODES
+        summary.append(result)
 
-    policy["mean"] = rewards.mean()
-    policy["std_error"] = rewards.sem()
-    policy["full_rejection_ratio"] = rewards[rewards == 0].size / NUM_EPISODES
+        policy_df = pd.DataFrame(rewards, columns=["reward"])
+        policy_df = policy_df.assign(policy=name, std_dev=std_dev)
+        dfs.append(policy_df)
 
-env.close()
+summary_df = pd.DataFrame(summary)
+print(summary_df)
 
-df = pd.DataFrame(policies)
-df = df.drop("policy")
-print(df)
+df = pd.concat(dfs, ignore_index=True)
+fig = px.histogram(df, x="reward", facet_col="policy", facet_row="std_dev", color="reward")
+fig.for_each_annotation(lambda a: a.update(text=a.text.replace("policy=", "")))
+fig.write_image("histogram_noise.png")
+# fig.show()

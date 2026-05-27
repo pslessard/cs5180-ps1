@@ -25,15 +25,22 @@ class ThresholdPolicy():
     
 class OptimalPolicy():
     def __init__(self) -> None:
-        self._policy: dict[int | np.int64, dict[int | np.int64, int]] = {
+        self._policy: dict[int, dict[int | np.int64, int]] = {
             1: {1: REJECT, 2: REJECT, 3: REJECT, 4: ACCEPT},
             2: {1: REJECT, 2: REJECT, 3: REJECT, 4: ACCEPT},
             3: {1: REJECT, 2: REJECT, 3: ACCEPT, 4: ACCEPT},
             4: {1: ACCEPT, 2: ACCEPT, 3: ACCEPT, 4: ACCEPT}
         }
     
-    def act(self, obs: dict[str, int | np.int64]) -> int:
-        assert "week" in obs and obs["week"] > 0 and obs["week"] <=4
-        assert "quality" in obs and obs["quality"] > 0 and obs["quality"] <=4
+    def act(self, obs: dict[str, int | np.int64 | float]) -> int:
+        assert "week" in obs and obs["week"] > 0 and obs["week"] <= 4
+        assert "quality" in obs
 
-        return self._policy[obs["week"]][obs["quality"]]
+        week = int(obs["week"])
+        estimated_quality = round(obs["quality"])
+        if estimated_quality < 1:
+            estimated_quality = 1
+        if estimated_quality > 4:
+            estimated_quality = 4    
+
+        return self._policy[week][estimated_quality]
